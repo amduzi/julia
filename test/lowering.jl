@@ -16,6 +16,11 @@ function _canonicalize_form!(ex, nextid, valmap)
             Symbol("ssa$newid")
         end
     end
+    if ex isa GlobalRef
+        ref_path = (:GRef, fullname(ex.mod)..., ex.name)
+        return foldl((a,b)->Expr(:(.), a, QuoteNode(b)), ref_path)
+    end
+    #=
     while ex isa Expr && ex.head == :block
         # Remove trivial blocks
         filter!(e->!(e isa LineNumberNode), ex.args)
@@ -24,6 +29,7 @@ function _canonicalize_form!(ex, nextid, valmap)
         end
         ex = ex.args[1]
     end
+    =#
     if ex isa Expr
         filter!(e->!(e isa LineNumberNode), ex.args)
         map!(ex.args, ex.args) do e
@@ -43,28 +49,22 @@ end
 
 macro test_expand_forms(in, ref)
     quote
-        @test canonicalize_form(fl_expand_forms($in)) == canonicalize_form($ref)
+        @test canonicalize_form(fl_expand_forms($(QuoteNode(in)))) == canonicalize_form($(QuoteNode(ref)))
     end
 end
 
 @testset "Expand comparison chains" begin
-
-    @test_expand_forms quote
-            a < b+c < d
-        end quote
-            if (ssa0 = b+c; a < ssa0)
-                ssa0 < d
-            else
-                false
-            end
+    @test_expand_forms(
+        a < b+c < d,
+        if (ssa0 = b+c; a < ssa0)
+            ssa0 < d
+        else
+            false
         end
+    )
 
-    Base_materialize = GlobalRef(Base, :materialize)
-    Base_broadcasted = GlobalRef(Base, :broadcasted)
-
-    @test_expand_forms quote
-            a .< b < c
-        end quote
-            $Base_materialize($Base_broadcasted(&, $Base_broadcasted(<, a, b), b < c))
-        end
+    @test_expand_forms(
+        a .< b < c,
+        GRef.Base.materialize(GRef.Base.broadcasted(&, GRef.Base.broadcasted(<, a, b), b < c))
+    )
 end
