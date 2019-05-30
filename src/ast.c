@@ -906,7 +906,7 @@ JL_DLLEXPORT jl_value_t *jl_load_file_string(const char *text, size_t len,
 }
 
 // returns either an expression or a thunk
-jl_value_t *jl_call_scm_on_ast(const char *funcname, jl_value_t *expr, jl_module_t *inmodule)
+JL_DLLEXPORT jl_value_t *jl_call_scm_on_ast(const char *funcname, jl_value_t *expr, jl_module_t *inmodule)
 {
     jl_ast_context_t *ctx = jl_ast_ctx_enter();
     fl_context_t *fl_ctx = &ctx->fl;
